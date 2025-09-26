@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Data files
+data/
+
+# Python package metadata
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Python cache and logs
+__pycache__/
+*.pyc
+*.pyo
+logs/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS system files
+.DS_Store
