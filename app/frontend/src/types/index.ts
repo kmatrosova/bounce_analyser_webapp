@@ -1,6 +1,7 @@
 export interface BounceData {
   global_info: {
     total_bounces: number;
+    oldest_record?: string;
   };
   reason_stats: StatsData;
   source_stats: StatsData;
@@ -49,4 +50,22 @@ export interface ChartData {
   name: string;
   value: number;
   percentage: number;
+}
+
+// New types for hierarchical campaign structure
+export interface Campaign {
+  campaign_id: string;
+  campaign_name: string;
+  last_updated: string;
+  total: number;
+  isLoading?: boolean;
+}
+
+export interface Client {
+  client_name: string;
+  campaigns: Campaign[];
+  total_campaigns: number;
+  total_bounces: number;
+  last_updated: string;
+  isExpanded?: boolean;
 } 

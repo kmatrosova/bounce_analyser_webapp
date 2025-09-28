@@ -21,7 +21,8 @@ def get_campaign_report(campaign_id: str):
     query = f"""
         SELECT
           bounce_reason_gpt,
-          bounce_source_gpt
+          bounce_source_gpt,
+          timestamp
         FROM `{project_id}.{dataset_id}.{table_name}`
         WHERE campaign_id = @campaign_id
     """
@@ -36,7 +37,7 @@ def get_campaign_report(campaign_id: str):
     if df is None or df.empty:
         return {
             "total_bounces": 0,
-            "global_info": {"total_bounces": 0},
+            "global_info": {"total_bounces": 0, "oldest_record": None},
             "reason_stats": {"counts": {}, "percentages": {}},
             "source_stats": {"counts": {}, "percentages": {}},
             "pivot_table": {},
@@ -58,6 +59,17 @@ def get_campaign_report(campaign_id: str):
     df["bounce_source"] = df["bounce_source"].astype(str).fillna("")
 
     total_bounces = int(len(df))
+    
+    # Calculate oldest record date
+    oldest_record = None
+    if total_bounces > 0 and 'timestamp' in df.columns:
+        try:
+            # Convert timestamp to datetime and find the minimum
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            oldest_record = df['timestamp'].min().isoformat()
+        except Exception as e:
+            print(f"Error processing timestamp: {e}")
+            oldest_record = None
 
     # Reason stats
     reason_counts = df["bounce_reason"].value_counts()
@@ -89,7 +101,10 @@ def get_campaign_report(campaign_id: str):
 
     return {
         "total_bounces": total_bounces,
-        "global_info": {"total_bounces": total_bounces},
+        "global_info": {
+            "total_bounces": total_bounces,
+            "oldest_record": oldest_record
+        },
         "reason_stats": {
             "counts": {str(k): int(v) for k, v in reason_counts.to_dict().items()},
             "percentages": {str(k): float(v) for k, v in reason_percentages.to_dict().items()},

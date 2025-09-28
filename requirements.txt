@@ -1,7 +1,7 @@
 pandas==2.1.3
 numpy==1.26.2 
 openai
-sklearn
+scikit-learn
 google-cloud-aiplatform
 google-cloud-storage
 google-cloud-bigquery
@@ -12,3 +12,4 @@ python-multipart==0.0.6
 pydantic==2.5.2
 python-dotenv>=1.0.0
 requests>=2.31.0
+aiohttp>=3.8.0
