@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from .routes import inference_routes
 from .routes import campaigns
 from .routes import report
 from .routes import upload
@@ -27,7 +26,6 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(inference_routes.router)
 app.include_router(campaigns.router)
 app.include_router(report.router)
 app.include_router(upload.router)
