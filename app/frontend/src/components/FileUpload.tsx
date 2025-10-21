@@ -22,10 +22,10 @@ interface ProgressData {
 }
 
 export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefilledClientName, prefilledCampaignName, isAddingData, clients = [] }: FileUploadProps) {
-  // API URL - use backend Cloud Run URL in production, localhost in dev
+  // API URL - use proxy API route for authenticated backend requests
   const API_URL = typeof window !== 'undefined' && window.location.hostname.includes('run.app')
-    ? 'https://bounce-webapp-backend-5bkgdumapa-ew.a.run.app'
-    : 'http://localhost:8081';
+    ? '/api/proxy'  // Use proxy route in production (adds Cloud Run auth)
+    : 'http://localhost:8081';  // Direct to backend in local dev
   
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);

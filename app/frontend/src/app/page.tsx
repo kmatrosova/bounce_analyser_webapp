@@ -44,10 +44,11 @@ export default function Home() {
 }
 
 function AuthenticatedHome({ session }: { session: Session }) {
-  // API URL - use backend Cloud Run URL in production, localhost in dev
+  // API URL - use proxy API route for authenticated backend requests
+  // The proxy runs server-side and includes Cloud Run identity tokens
   const API_URL = typeof window !== 'undefined' && window.location.hostname.includes('run.app')
-    ? 'https://bounce-webapp-backend-5bkgdumapa-ew.a.run.app'
-    : 'http://localhost:8081';
+    ? '/api/proxy'  // Use proxy route in production (adds Cloud Run auth)
+    : 'http://localhost:8081';  // Direct to backend in local dev
   
   const [data, setData] = useState<BounceData | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
