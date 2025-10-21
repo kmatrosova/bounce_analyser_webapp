@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   BarChart,
   Bar,
@@ -14,11 +14,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ChartProps, ChartDataPoint } from '@/types';
+import { ChartProps } from '@/types';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF6B6B', '#4ECDC4'];
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: { name: string; value: number; percentage: number } }>;
+}
+
+const CustomTooltip = ({ active, payload }: TooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (

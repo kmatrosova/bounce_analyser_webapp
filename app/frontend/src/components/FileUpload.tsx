@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { BounceData, Client } from '@/types';
 
 interface FileUploadProps {
-  onDataLoaded: (data: BounceData, fileName: string) => void;
-  onTaskStarted: (clientName: string, campaignName: string, fileName: string) => void;
+  onDataLoaded: (data: BounceData) => void;
+  onTaskStarted: (clientName: string, campaignName: string) => void;
   onClose: () => void;
   // Optional props for pre-populating existing campaign
   prefilledClientName?: string;
@@ -22,17 +22,19 @@ interface ProgressData {
 }
 
 export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefilledClientName, prefilledCampaignName, isAddingData, clients = [] }: FileUploadProps) {
+  // API URL - use backend Cloud Run URL in production, localhost in dev
+  const API_URL = typeof window !== 'undefined' && window.location.hostname.includes('run.app')
+    ? 'https://bounce-webapp-backend-5bkgdumapa-ew.a.run.app'
+    : 'http://localhost:8081';
+  
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
-  const [taskId, setTaskId] = useState<string | null>(null);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const pollTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const [totalRows, setTotalRows] = useState<number | undefined>(undefined);
-  const [processedRows, setProcessedRows] = useState<number | undefined>(undefined);
-  const [title, setTitle] = useState<string | undefined>(undefined);
   
   // New fields for client and campaign
   const [clientName, setClientName] = useState(prefilledClientName || '');
@@ -46,39 +48,35 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
     setProgress(data.progress);
     setProgressMessage(data.message);
     setProgressData(data);
-    setTotalRows(data.total_rows);
-    setProcessedRows(data.processed_batches);
   }, []);
 
-  const pollProgress = useCallback(async () => {
-    if (!taskId) return;
-    
+  const pollProgress = useCallback(async (currentTaskId: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/progress/${taskId}`);
+      const response = await fetch(`http://localhost:8000/api/progress/${currentTaskId}`);
       const data = await response.json();
       
       updateProgress(data);
       
       if (data.progress === 100 && data.is_complete) {
-        const finalResponse = await fetch(`http://localhost:8000/api/analyze/${taskId}`);
+        const finalResponse = await fetch(`http://localhost:8000/api/analyze/${currentTaskId}`);
         const finalData = await finalResponse.json();
-        onDataLoaded(finalData, data.title || '');
+        onDataLoaded(finalData);
         onClose();
       } else {
-        pollTimeoutRef.current = setTimeout(pollProgress, 1000);
+        pollTimeoutRef.current = setTimeout(() => pollProgress(currentTaskId), 1000);
       }
     } catch (error) {
       console.error('Error polling progress:', error);
       setError('Error checking progress');
     }
-  }, [taskId, onDataLoaded, onClose, updateProgress]);
+  }, [onDataLoaded, onClose, updateProgress]);
 
   useEffect(() => {
     let isMounted = true;
 
     const startPolling = async () => {
       if (taskId && isMounted) {
-        await pollProgress();
+        await pollProgress(taskId);
       }
     };
 
@@ -104,7 +102,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
     setIsCheckingCampaign(true);
     try {
       const campaignId = `${clientName}-${campaignName}`;
-      const response = await fetch(`http://localhost:8081/api/campaigns/${encodeURIComponent(campaignId)}/exists`);
+      const response = await fetch(`${API_URL}/api/campaigns/${encodeURIComponent(campaignId)}/exists`);
       const exists = response.status === 200;
       setCampaignExists(exists);
     } catch (error) {
@@ -171,12 +169,10 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
 
     try {
       setError(null);
-
-      // Create campaign ID from client-campaign
-      const campaignId = `${clientName.trim()}-${campaignName.trim()}`;
+      setIsLoading(true);
       
       // Immediately create task/campaign with loading state
-      onTaskStarted(clientName.trim(), campaignName.trim(), fileSelected.name);
+      onTaskStarted(clientName.trim(), campaignName.trim());
       
       // Close popup immediately
       onClose();
@@ -187,7 +183,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
       formData.append('client_name', clientName.trim());
       formData.append('campaign_name', campaignName.trim());
 
-      fetch('http://localhost:8081/api/upload/csv', {
+      fetch(`${API_URL}/api/upload/csv`, {
         method: 'POST',
         body: formData,
       })
@@ -200,18 +196,19 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
       .then(result => {
         console.log('Upload started:', result);
         // The upload is now processing in background
-        // We can optionally start polling for status if needed
         if (result.task_id) {
-          // Store task_id for potential status checking
-          console.log('Task ID:', result.task_id);
+          setTaskId(result.task_id);
         }
+        setIsLoading(false);
       })
       .catch(error => {
         console.error('Upload failed:', error);
+        setIsLoading(false);
       });
       
     } catch (error) {
       console.error('Error:', error);
+      setIsLoading(false);
       setError(error instanceof Error ? error.message : 'An error occurred');
     }
   };
@@ -347,7 +344,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
           )}
           {!isAddingData && campaignExists === true && (
             <p className="mt-1 text-sm text-red-600">
-              This client already has a campaign named "{campaignName}". Please choose a different campaign name.
+              This client already has a campaign named &ldquo;{campaignName}&rdquo;. Please choose a different campaign name.
             </p>
           )}
           {!isAddingData && campaignExists === false && (

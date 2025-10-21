@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Session } from 'next-auth';
 import { BounceData, Client } from '@/types';
 import CampaignHistory from '@/components/CampaignHistory';
 import FileUpload from '@/components/FileUpload';
@@ -10,6 +13,42 @@ import BounceSources from '@/components/BounceSources';
 import PivotTable from '@/components/PivotTable';
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  // Show loading while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated
+  if (!session) {
+    return null;
+  }
+
+  return <AuthenticatedHome session={session} />;
+}
+
+function AuthenticatedHome({ session }: { session: Session }) {
+  // API URL - use backend Cloud Run URL in production, localhost in dev
+  const API_URL = typeof window !== 'undefined' && window.location.hostname.includes('run.app')
+    ? 'https://bounce-webapp-backend-5bkgdumapa-ew.a.run.app'
+    : 'http://localhost:8081';
+  
   const [data, setData] = useState<BounceData | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -27,7 +66,7 @@ export default function Home() {
   useEffect(() => {
     const loadExistingCampaigns = async () => {
       try {
-        const res = await fetch('http://localhost:8081/api/campaigns', { cache: 'no-store' });
+        const res = await fetch(`${API_URL}/api/campaigns`, { cache: 'no-store' });
         if (!res.ok) return;
         const clientData: Client[] = await res.json();
         setClients(clientData);
@@ -38,12 +77,12 @@ export default function Home() {
     loadExistingCampaigns();
   }, []);
 
-  const handleDataLoaded = (newData: BounceData, fileName: string) => {
+  const handleDataLoaded = (newData: BounceData) => {
     // This function is now handled by the task flow
     setData(newData);
   };
 
-  const handleTaskStarted = (clientName: string, campaignName: string, fileName: string) => {
+  const handleTaskStarted = (clientName: string, campaignName: string) => {
     // Create campaign ID from client and campaign names
     const campaignId = `${clientName}-${campaignName}`;
     
@@ -123,7 +162,7 @@ export default function Home() {
   const pollForCompletion = (campaignId: string) => {
     const checkCompletion = async () => {
       try {
-        const response = await fetch(`http://localhost:8081/api/report/${encodeURIComponent(campaignId)}`);
+        const response = await fetch(`${API_URL}/api/report/${encodeURIComponent(campaignId)}`);
         
         if (response.ok) {
           // Data exists but might not be fully processed yet
@@ -265,7 +304,7 @@ export default function Home() {
     setData(null); // Clear data while loading new report
 
     // Fetch data in background (non-blocking)
-    fetch(`http://localhost:8081/api/report/${encodeURIComponent(campaignId)}`)
+    fetch(`${API_URL}/api/report/${encodeURIComponent(campaignId)}`)
       .then(res => {
         if (!res.ok) {
           throw new Error(`Failed to fetch report for ${campaignId}: ${res.statusText}`);
@@ -327,7 +366,7 @@ export default function Home() {
     }
     try {
       return new Date(data.global_info.oldest_record).toLocaleDateString();
-    } catch (error) {
+    } catch {
       return null;
     }
   };
@@ -338,10 +377,26 @@ export default function Home() {
                 clients={clients}
                 onCampaignSelect={handleCampaignSelect}
                 onNewCampaign={handleDataLoaded}
-                onTaskStarted={(clientName, campaignName, fileName) => handleTaskStarted(clientName, campaignName, fileName)}
+                onTaskStarted={handleTaskStarted}
               />
       
               <div className="ml-64">
+        {/* Header with user info */}
+        <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-900">Bounce Analyzer</h1>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              {session?.user?.email}
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+
         <div className="p-8">
           {!data ? (
             isLoadingCampaign ? (
@@ -433,12 +488,12 @@ export default function Home() {
               </button>
             </div>
             <FileUpload 
-              onDataLoaded={(data, fileName) => {
-                handleDataLoaded(data, fileName);
+              onDataLoaded={(data) => {
+                handleDataLoaded(data);
                 setShowAddData(false);
               }}
-              onTaskStarted={(clientName, campaignName, fileName) => {
-                handleTaskStarted(clientName, campaignName, fileName);
+              onTaskStarted={(clientName, campaignName) => {
+                handleTaskStarted(clientName, campaignName);
                 setShowAddData(false);
               }}
               onClose={() => setShowAddData(false)}

@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import FileUpload from './FileUpload';
-import { BounceData, Client, Campaign } from '@/types';
+import { BounceData, Client } from '@/types';
 
 interface CampaignHistoryProps {
   clients: Client[];
   onCampaignSelect: (campaignId: string) => void;
-  onNewCampaign: (data: BounceData, fileName: string) => void;
-  onTaskStarted: (clientName: string, campaignName: string, fileName: string) => void;
+  onNewCampaign: (data: BounceData) => void;
+  onTaskStarted: (clientName: string, campaignName: string) => void;
 }
 
 export default function CampaignHistory({ clients, onCampaignSelect, onNewCampaign, onTaskStarted }: CampaignHistoryProps) {
@@ -16,13 +16,13 @@ export default function CampaignHistory({ clients, onCampaignSelect, onNewCampai
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
-  const handleDataLoaded = (data: BounceData, fileName: string) => {
-    onNewCampaign(data, fileName);
+  const handleDataLoaded = (data: BounceData) => {
+    onNewCampaign(data);
     setShowUpload(false);
   };
 
-  const handleTaskStarted = (clientName: string, campaignName: string, fileName: string) => {
-    onTaskStarted(clientName, campaignName, fileName);
+  const handleTaskStarted = (clientName: string, campaignName: string) => {
+    onTaskStarted(clientName, campaignName);
     setShowUpload(false);
   };
 

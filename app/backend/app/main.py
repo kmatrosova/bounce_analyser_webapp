@@ -25,6 +25,11 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Cloud Run"""
+    return {"status": "healthy"}
+
 # Include routers
 app.include_router(campaigns.router)
 app.include_router(report.router)

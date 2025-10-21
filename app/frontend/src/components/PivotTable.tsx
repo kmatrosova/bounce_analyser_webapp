@@ -42,7 +42,7 @@ export default function PivotTable({ data }: PivotTableProps) {
   // Filter data if showOnlyHighlighted is true
   const filteredData = showOnlyHighlighted
     ? Object.entries(data).reduce((acc, [reason, row]) => {
-        const hasHighlightedCell = Object.entries(row).some(([source, value]) => {
+        const hasHighlightedCell = Object.entries(row).some(([, value]) => {
           const percentage = (value / grandTotal) * 100;
           return percentage >= threshold;
         });
@@ -56,7 +56,7 @@ export default function PivotTable({ data }: PivotTableProps) {
   // Filter sources if showOnlyHighlighted is true
   const filteredSources = showOnlyHighlighted
     ? sources.filter(source =>
-        Object.entries(filteredData).some(([_, row]) => {
+        Object.entries(filteredData).some(([, row]) => {
           const value = row[source] || 0;
           const percentage = (value / grandTotal) * 100;
           return percentage >= threshold;

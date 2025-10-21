@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: bounce_analyser_webapp/Dockerfile.backend
+    image: bounce-analyser-backend:latest
+    container_name: bounce-backend
+    ports:
+      - "8000:8080"
+    environment:
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - BIGQUERY_DATASET_ID=${BIGQUERY_DATASET_ID}
+      - BIGQUERY_TABLE_NAME=${BIGQUERY_TABLE_NAME}
+      - BOUNCE_PROCESSOR_URL=${BOUNCE_PROCESSOR_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FINE_TUNED_MODEL_SOURCE_BATCH=${FINE_TUNED_MODEL_SOURCE_BATCH}
+      - FINE_TUNED_MODEL_REASON_BATCH=${FINE_TUNED_MODEL_REASON_BATCH}
+      - FINE_TUNED_MODEL_SOURCE_SINGLE=${FINE_TUNED_MODEL_SOURCE_SINGLE}
+      - FINE_TUNED_MODEL_REASON_SINGLE=${FINE_TUNED_MODEL_REASON_SINGLE}
+    volumes:
+      - ./app/backend/data:/app/data
+    networks:
+      - bounce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: ../../Dockerfile.frontend
+    image: bounce-analyser-frontend:latest
+    container_name: bounce-frontend
+    ports:
+      - "3000:8080"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - bounce-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  bounce-network:
+    driver: bridge
+
