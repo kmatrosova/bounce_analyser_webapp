@@ -9,6 +9,10 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +21,9 @@ ALLOWED_SERVICE_ACCOUNTS = os.getenv("ALLOWED_SERVICE_ACCOUNTS", "").split(",")
 
 # In development (localhost), skip authentication
 IS_LOCAL_DEV = os.getenv("ENVIRONMENT", "production") == "development"
+
+# Log the environment mode on startup
+logger.info(f"Auth middleware initialized - Environment: {os.getenv('ENVIRONMENT', 'production')}, Local dev mode: {IS_LOCAL_DEV}")
 
 
 async def verify_cloud_run_token(request: Request, call_next):
