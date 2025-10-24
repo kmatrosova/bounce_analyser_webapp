@@ -29,6 +29,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
   
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
@@ -92,10 +93,54 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
     };
   }, [taskId, pollProgress]);
 
+  const validateCSVHeaders = async (file: File): Promise<boolean> => {
+    try {
+      const text = await file.text();
+      const firstLine = text.split('\n')[0];
+      const headers = firstLine.split(',').map(h => h.trim().toLowerCase());
+      
+      // Required fields
+      const requiredFields = ['timestamp', 'bounce_message', 'recipient'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        setError(`CSV is missing required columns: ${missingFields.join(', ')}`);
+        setWarning(null);
+        return false;
+      }
+      
+      // Optional but recommended fields
+      const optionalFields = ['sender'];
+      const missingOptional = optionalFields.filter(field => !headers.includes(field));
+      
+      if (missingOptional.length > 0) {
+        const fieldList = missingOptional.map(f => `'${f}'`).join(', ');
+        setWarning(`${fieldList} ${missingOptional.length === 1 ? 'column is' : 'columns are'} missing. Without ${missingOptional.length === 1 ? 'this field' : 'these fields'}, insights might be somewhat limited.`);
+      } else {
+        setWarning(null);
+      }
+      
+      return true;
+    } catch {
+      setError('Failed to read CSV file. Please ensure it is a valid CSV.');
+      setWarning(null);
+      return false;
+    }
+  };
+
   const handleFile = async (file: File) => {
-    setFileSelected(file);
     setError(null);
+    setWarning(null);
     setCampaignExists(null);
+    
+    // Validate CSV headers before accepting the file
+    const isValid = await validateCSVHeaders(file);
+    if (!isValid) {
+      setFileSelected(null);
+      return;
+    }
+    
+    setFileSelected(file);
   };
 
   const checkExistingCampaign = async (clientName: string, campaignName: string) => {
@@ -169,6 +214,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
 
     try {
       setError(null);
+      setWarning(null);
       setIsLoading(true);
       
       // Immediately create task/campaign with loading state
@@ -357,53 +403,73 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
 
       {/* File upload area */}
       {!fileSelected ? (
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center ${
-            isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'
-          } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="file-upload"
-            disabled={isLoading}
-          />
-          <label
-            htmlFor="file-upload"
-            className="cursor-pointer"
+        <>
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center ${
+              isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'
+            } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                <svg
-                  className="w-12 h-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="file-upload"
+              disabled={isLoading}
+            />
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <svg
+                    className="w-12 h-12 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                </div>
+                <div className="text-gray-600">
+                  <p className="text-sm font-medium">
+                    Drag and drop your CSV file here, or click to select
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only CSV files are supported
+                  </p>
+                </div>
               </div>
-              <div className="text-gray-600">
-                <p className="text-sm font-medium">
-                  Drag and drop your CSV file here, or click to select
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Only CSV files are supported
-                </p>
+            </label>
+          </div>
+          
+          {/* CSV Format Information */}
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-2">Your .csv file should have the following fields:</p>
+                <ul className="space-y-1 text-xs">
+                  <li><span className="font-semibold">timestamp</span> - timestamp of when the email was sent</li>
+                  <li><span className="font-semibold">bounce_message</span> - reply message describing the reason why the email couldn&apos;t be sent</li>
+                  <li><span className="font-semibold">recipient</span> - lead email address</li>
+                  <li><span className="font-semibold">sender (optional)</span> - sender email address</li>
+                </ul>
               </div>
             </div>
-          </label>
-        </div>
+          </div>
+        </>
       ) : (
         <div className="border rounded-lg p-4">
           <div className="flex items-center">
@@ -425,7 +491,7 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
               <p className="text-xs text-gray-500">File selected</p>
             </div>
             <button
-              onClick={() => { setFileSelected(null); setError(null); }}
+              onClick={() => { setFileSelected(null); setError(null); setWarning(null); }}
               className="text-sm border rounded px-2 py-1"
             >
               Change
@@ -488,6 +554,17 @@ export default function FileUpload({ onDataLoaded, onTaskStarted, onClose, prefi
 
       {error && (
         <div className="mt-4 text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded p-3">{error}</div>
+      )}
+      
+      {warning && !error && (
+        <div className="mt-4 text-yellow-800 text-sm bg-yellow-50 border border-yellow-300 rounded p-3">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span>{warning}</span>
+          </div>
+        </div>
       )}
     </div>
   );
